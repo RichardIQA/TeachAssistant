@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>智能教学反馈系统</title>
+  <!-- Vis.js 网络图 -->
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <!-- Font Awesome 图标 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- 谷歌字体 -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #4361ee;
+      --primary-light: #4cc9f0;
+      --bg: #f8f9fc;
+      --card-bg: #ffffff;
+      --text: #212529;
+      --text-light: #6c757d;
+      --border: #dee2e6;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+      display: flex;
+      gap: 24px;
+      height: calc(100vh - 40px);
+    }
+
+    /* 聊天区域 */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .chat-header {
+      padding: 18px 20px;
+      background: var(--primary);
+      color: white;
+      font-weight: 600;
+      font-size: 1.1em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chat-body {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .chat-footer {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+    }
+
+    .chat-footer input {
+      flex: 1;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 15px;
+      outline: none;
+      transition: border 0.2s;
+    }
+
+    .chat-footer input:focus {
+      border-color: var(--primary);
+    }
+
+    .chat-footer button {
+      padding: 0 24px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 15px;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .chat-footer button:hover {
+      background: #3a56d4;
+    }
+
+    .msg {
+      max-width: 85%;
+      padding: 14px 18px;
+      border-radius: 14px;
+      line-height: 1.5;
+      font-size: 15px;
+    }
+
+    .msg-user {
+      align-self: flex-end;
+      background: var(--primary);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg-ai {
+      align-self: flex-start;
+      background: #f1f8ff;
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+    }
+
+    .loading {
+      color: var(--text-light);
+      font-style: italic;
+    }
+
+    /* 知识图谱区域 */
+    .kg-area {
+      width: 450px;
+      display: flex;
+      flex-direction: column;
+      background: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .kg-header {
+      padding: 18px 20px;
+      background: #16db93;
+      color: white;
+      font-weight: 600;
+      font-size: 1.1em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .kg-body {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    #graph {
+      width: 100%;
+      height: 500px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #fafafa;
+    }
+
+    .btn-outline {
+      background: white !important;
+      color: #16db93 !important;
+      border: 1px solid #16db93 !important;
+    }
+
+    .btn-outline:hover {
+      background: #e8fff5 !important;
+    }
+
+    /* 响应式 */
+    @media (max-width: 1200px) {
+      .container {
+        flex-direction: column;
+      }
+      .kg-area {
+        width: 100%;
+        max-height: 400px;
+      }
+    }
+
+    /* 滚动条美化 */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #ccc;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <h1 style="text-align: center; color: var(--primary); margin: 16px 0; font-weight: 500; font-size: 1.8em;">
+    <i class="fas fa-brain"></i> 智能教学反馈系统
+  </h1>
+
+  <div class="container">
+    <!-- 聊天区域 -->
+    <div class="chat-area">
+      <div class="chat-header">
+        <i class="fas fa-comments"></i> 智能问答
+      </div>
+      <div class="chat-body" id="chat"></div>
+      <div class="chat-footer">
+        <input
+          type="text"
+          id="question"
+          placeholder="输入你的学习问题，例如：函数的性质有哪些？"
+          autofocus
+        />
+        <button onclick="ask()">
+          <i class="fas fa-paper-plane"></i> 发送
+        </button>
+      </div>
+    </div>
+
+    <!-- 知识图谱区域 -->
+    <div class="kg-area">
+      <div class="kg-header">
+        <i class="fas fa-project-diagram"></i> 知识图谱
+      </div>
+      <div class="kg-body">
+        <button class="btn-outline" onclick="loadKG()">
+          <i class="fas fa-sync-alt"></i> 刷新图谱
+        </button>
+        <div id="graph"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const chat = document.getElementById("chat");
+
+    async function ask() {
+      const input = document.getElementById("question");
+      const q = input.value.trim();
+      if (!q) return;
+
+      // 用户消息
+      const userMsg = document.createElement("div");
+      userMsg.className = "msg msg-user";
+      userMsg.innerHTML = `<strong>你：</strong> ${q}`;
+      chat.appendChild(userMsg);
+
+      // AI 回复占位
+      const aiMsg = document.createElement("div");
+      aiMsg.className = "msg msg-ai";
+      aiMsg.innerHTML = `<strong>AI：</strong><span class="loading">思考中…</span>`;
+      chat.appendChild(aiMsg);
+      chat.scrollTop = chat.scrollHeight;
+
+      try {
+        const res = await fetch("/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: q })
+        });
+
+        if (!res.body) throw new Error("No stream");
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let fullText = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n\n");
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6);
+              try {
+                const json = JSON.parse(data);
+                if (json.type === "token") {
+                  fullText += json.text;
+                  aiMsg.innerHTML = `<strong>AI：</strong>${fullText.replace(/\n/g, "<br>")}`;
+                } else if (json.type === "rewrite") {
+                  console.log("🔍 重写问题:", json.text);
+                } else if (json.type === "error") {
+                  aiMsg.innerHTML = `<strong>AI：</strong><span style="color:red">${json.text}</span>`;
+                } else if (json.type === "done") {
+                  document.querySelector(".loading")?.remove();
+                }
+              } catch (e) { /* 忽略非 JSON 数据 */ }
+            }
+          }
+        }
+      } catch (err) {
+        aiMsg.innerHTML = `<strong>AI：</strong><span style="color:red">❌ ${err.message}</span>`;
+      }
+
+      input.value = "";
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    // 回车发送
+    document.getElementById("question").addEventListener("keypress", e => {
+      if (e.key === "Enter") ask();
+    });
+
+    // 知识图谱
+
+    async function loadKG() {
+      const container = document.getElementById("graph");
+      container.innerHTML = '<p class="loading">🔍 正在加载知识图谱...</p>';
+
+      try {
+        const res = await fetch("/kg");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+
+        // ✅ 验证数据格式
+        if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
+          throw new Error("无效的数据格式：缺少 nodes 或 edges");
+        }
+
+        // ✅ 转换 edges 字段：vis.js 使用 from/to，不是 source/target
+        const nodes = new vis.DataSet(data.nodes);
+        const edges = new vis.DataSet(
+          data.edges.map(edge => ({
+            from: edge.source || edge.from, // 兼容两种格式
+            to: edge.target || edge.to,
+            label: edge.relation || "",
+            arrows: "to",
+            color: "#888",
+            font: { size: 10 }
+          }))
+        );
+
+        const visData = { nodes, edges };
+        const options = {
+          autoResize: true,
+          height: "80vh",
+          width: "100%",
+          physics: {
+            enabled: true,
+            solver: "forceAtlas2Based",
+            stabilization: { iterations: 150 },
+            forceAtlas2Based: {
+              gravitationalConstant: -50,
+              centralGravity: 0.01,
+              springLength: 100,
+              springConstant: 0.08
+            },
+            timestep: 0.35,
+            adaptiveTimestep: true
+          },
+          edges: {
+            smooth: {
+              type: "continuous",
+              roundness: 0.3
+            },
+            font: {
+              size: 12,
+              face: "Microsoft YaHei, SimHei, sans-serif"
+            },
+            color: { color: "#888", highlight: "#555" },
+            selectionWidth: 2
+          },
+          nodes: {
+            shape: "dot",
+            size: 16,
+            font: {
+              size: 14,
+              color: "#333",
+              face: "Microsoft YaHei, SimHei, sans-serif"
+            },
+            borderWidth: 2,
+            shadow: true,
+            color: {
+              background: "#ffffff",
+              border: "#4a90e2",
+              highlight: { background: "#d4edda", border: "#28a745" }
+            }
+          },
+          layout: {
+            improvedLayout: true,
+            hierarchical: false
+          },
+          interaction: {
+            dragNodes: true,
+            zoomView: true,
+            navigationButtons: true,
+            keyboard: true
+          }
+        };
+
+        // 渲染图谱
+        new vis.Network(container, visData, options);
+      } catch (err) {
+        console.error("❌ 加载失败:", err);
+        container.innerHTML = `
+          <div class="error">
+            <p>❌ 加载失败: ${err.message}</p>
+            <p>请检查后端是否正常运行并返回 /kg 数据。</p>
+          </div>`;
+      }
+    }
+
+    // 页面加载完成后初始化
+    window.onload = loadKG;
+  </script>
+
+
+</body>
+</html>
